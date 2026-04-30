@@ -235,15 +235,6 @@ PY
 | `TI@95` | higher |
 | `Optimal Coverage` | descriptive |
 
-The repo uses the paper-style selective-prediction convention:
-
-```text
-RC-AUC = 1 - AURC
-```
-
-So `RC-AUC` is on a retained-performance scale, not a risk scale.
-
----
 
 ## 7. Reporting
 
@@ -305,32 +296,10 @@ figures/
 
 ---
 
-## 8. Clean rerun
 
-If you change metric definitions or config options, remove old summaries first:
+## 8. Full model-based scoring
 
-```bash
-rm -f results/english_validation_mbert/metrics/*summary*.csv
-rm -f results/english_validation_mbert/metrics/*long*.csv
-rm -f results/english_validation_mbert/reporting/csv/*.csv
-rm -f results/english_validation_mbert/reporting/tables/*.tex
-```
-
-Then rerun evaluation and reporting:
-
-```bash
-python scripts/evaluate_saved_model_uncertainty.py \
-  --config configs/evaluate_saved_model_uncertainty.yaml
-
-python scripts/make_report_outputs.py \
-  --config configs/reporting_english_validation_mbert.yaml
-```
-
----
-
-## 9. Full model-based scoring
-
-Use this workflow only when you want the repo to load saved models and compute uncertainty scores.
+Use this workflow  when you want the repo to load saved models and compute uncertainty scores.
 
 Check files:
 
@@ -357,7 +326,7 @@ python scripts/run_single_fold.py \
 
 ---
 
-## 10. Adding a new uncertainty method
+## 9. Adding a new uncertainty method
 
 1. Add the method in:
 
@@ -381,7 +350,7 @@ methods.enabled
 
 ---
 
-## 11. Development checks
+## 10. Development checks
 
 Run tests:
 
@@ -401,19 +370,7 @@ PY
 
 ---
 
-## 12. Reproducibility
-
-Each fold should use a fixed seed, normally:
-
-```text
-42 + fold_id
-```
-
-Timing code should use CUDA synchronization when a GPU is available.
-
----
-
-## 13. Citation
+## 11. Citation
 
 If you use this repository, please cite:
 
