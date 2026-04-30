@@ -2,12 +2,15 @@
 
 A small benchmark for evaluating uncertainty estimation methods for text classification and readability prediction.
 
-The repository supports two main workflows:
+The repository supports three main workflows:
 
 1. **Evaluate saved prediction CSVs**  
    Use this when you already have fold-level prediction files with labels, probabilities, and optionally saved uncertainty scores such as `SMP`.
 
-2. **Generate reporting outputs**  
+2. **Fit rejection thresholds / selective prediction curves**  
+   Use this after uncertainty scores have been computed. This finds thresholds for accepting or rejecting predictions based on uncertainty.
+
+3. **Generate reporting outputs**  
    Use this after evaluation to create paper-ready CSV files, LaTeX tables, and figures.
 
 All uncertainty scores should follow one convention:
@@ -21,14 +24,18 @@ larger score = more uncertain
 ## 1. Repository structure
 
 ```text
-
 ├── configs/
 │   ├── evaluate_saved_model_uncertainty.yaml
+│   ├── rejection_fit.yaml
+│   ├── smp_rejection_apply.yaml
 │   └── reporting_english_validation_mbert.yaml
 ├── data/
 ├── results/
 ├── scripts/
 │   ├── evaluate_saved_model_uncertainty.py
+│   ├── smp_rejection_thresholds.py
+│   ├── summarise_rejection_curve.py
+│   ├── summarise_rejection_by_coverage.py
 │   ├── make_report_outputs.py
 │   ├── run_folds.py
 │   └── run_single_fold.py
@@ -65,7 +72,7 @@ Install the local `src` package:
 pip install -e .
 ```
 
-If imports fail , add `src` to `PYTHONPATH`:
+If imports fail, add `src` to `PYTHONPATH`:
 
 ```bash
 export PYTHONPATH=$PWD/src:$PYTHONPATH
@@ -151,7 +158,7 @@ Each fold prediction CSV should contain:
 
 `SR`, `ENT`, and `MARGIN` can be computed from probability columns.
 
-Methods such as `SMP`, `PV`, `BALD`, and `ENT_MC` must already exist as columns in the prediction CSV if you are using `saved_scores` mode.
+Methods such as `SMP`, `PV`, `BALD`, and `ENT_MC` can be evaluated in two ways. In saved-score mode, they must already exist as columns in the prediction CSV. In model-scoring mode, the script loads the saved fold model and computes MC-dropout uncertainty scores before evaluation.
 
 ---
 
@@ -235,8 +242,263 @@ PY
 | `TI@95` | higher |
 | `Optimal Coverage` | descriptive |
 
+---
 
-## 7. Reporting
+## 7. Rejection thresholds and selective prediction
+
+After uncertainty scores have been computed, the repository can evaluate selective prediction.
+
+Selective prediction asks:
+
+```text
+Can the model become more reliable if it refuses to predict on the most uncertain examples?
+```
+
+The idea is simple:
+
+```text
+larger uncertainty score = less reliable prediction
+```
+
+For a method such as `SMP`, `SR`, or `ENT`, we choose a threshold:
+
+```text
+accept prediction if uncertainty <= threshold
+reject prediction if uncertainty > threshold
+```
+
+The accepted examples are the examples the model keeps. The rejected examples are the examples that would be sent to manual review, a fallback model, or a safer downstream process.
+
+### 7.1 Fit rejection thresholds
+
+Use this after running uncertainty evaluation and saving score files.
+
+For the English validation mBERT experiment, the input score files are:
+
+```text
+results/english_validation_mbert/scores/fold_*_scores_wide.csv
+```
+
+Each file should contain at least:
+
+```text
+true_label
+predicted_label
+SMP
+SR
+ENT
+```
+
+Check this with:
+
+```bash
+head -1 results/english_validation_mbert/scores/fold_0_scores_wide.csv
+```
+
+The threshold config is:
+
+```text
+configs/rejection_fit.yaml
+```
+
+Example config:
+
+```yaml
+mode: fit_thresholds
+
+task_type: classification
+
+input_predictions_glob: "results/english_validation_mbert/scores/fold_*_scores_wide.csv"
+
+output_thresholds: "results/english_validation_mbert/rejection_thresholds.csv"
+output_curve: "results/english_validation_mbert/rejection_curve.csv"
+
+columns:
+  gold_col: "true_label"
+  pred_col: "predicted_label"
+  language_col: null
+
+uncertainty:
+  methods: ["SMP", "SR", "ENT"]
+  score_direction: "higher_is_uncertain"
+
+languages:
+  use: "all"
+
+threshold:
+  scope: "global"
+
+threshold_selection:
+  mode: "target_coverage"
+  target_coverage: 0.80
+
+coverage_grid:
+  start: 1.00
+  end: 0.50
+  step: 0.05
+
+bootstrap:
+  enabled: true
+  n_resamples: 200
+  ci: 0.95
+  random_seed: 42
+```
+
+Run:
+
+```bash
+python scripts/smp_rejection_thresholds.py \
+  --config configs/rejection_fit.yaml
+```
+
+This produces:
+
+```text
+results/english_validation_mbert/rejection_thresholds.csv
+results/english_validation_mbert/rejection_curve.csv
+```
+
+### 7.2 What the threshold means
+
+For a target coverage of 80%, the script chooses a threshold that keeps about 80% of examples and rejects about 20%.
+
+For example, if the selected SMP threshold is:
+
+```text
+0.272666
+```
+
+then the decision rule is:
+
+```text
+accept if SMP <= 0.272666
+reject if SMP > 0.272666
+```
+
+This is because the score convention is:
+
+```text
+higher score = more uncertain
+```
+
+The threshold does not change the model itself. It only changes which predictions are considered safe enough to keep.
+
+### 7.3 Summarise one coverage point
+
+To summarise the results at 80% coverage, run:
+
+```bash
+python scripts/summarise_rejection_curve.py \
+  --curve results/english_validation_mbert/rejection_curve.csv \
+  --target_coverage 0.80 \
+  --output results/english_validation_mbert/rejection_summary_at_80.csv
+```
+
+This prints a table like:
+
+```text
+At around 80% coverage, the results are:
+
+Method  Accepted  Rejected  Threshold  Accepted accuracy
+SMP        1395       349   0.272666             0.9075
+SR         1395       349   0.285991             0.9039
+ENT        1395       349   0.598523             0.9039
+```
+
+Interpretation:
+
+```text
+Without rejection: accuracy = 0.8825
+With SMP rejection at 80% coverage: accepted accuracy = 0.9075
+Rejected examples = 349 / 1744 ≈ 20%
+```
+
+This means the model is more accurate on the subset of predictions it keeps.
+
+### 7.4 Summarise several coverage levels
+
+To compare the best method at several coverage levels, run:
+
+```bash
+python scripts/summarise_rejection_by_coverage.py \
+  --curve results/english_validation_mbert/rejection_curve.csv \
+  --coverages 0.90 0.80 0.70 0.60 0.50 \
+  --output results/english_validation_mbert/rejection_best_by_coverage.csv
+```
+
+For the English validation mBERT experiment, the results were:
+
+| Target coverage | Best method | Accepted accuracy | Gain over no rejection | Accepted | Rejected |
+|---:|---|---:|---:|---:|---:|
+| 90% | `ENT` | 0.9063 | +0.0239 | 1569 | 175 |
+| 80% | `SMP` | 0.9075 | +0.0251 | 1395 | 349 |
+| 70% | `ENT` | 0.9500 | +0.0675 | 1220 | 524 |
+| 60% | `SMP` | 0.9522 | +0.0697 | 1046 | 698 |
+| 50% | `ENT` | 0.9610 | +0.0786 | 872 | 872 |
+
+The no-rejection baseline accuracy was:
+
+```text
+0.8825
+```
+
+This shows that rejection improves accepted-set accuracy at every tested coverage level.
+
+### 7.5 How to describe the result
+
+A short report sentence:
+
+```text
+Selective prediction improves reliability by trading coverage for accuracy. The full-coverage model achieves 0.8825 accuracy. At 80% coverage, SMP gives the strongest operating point, increasing accepted accuracy to 0.9075 while rejecting 20% of examples. Under stricter rejection, accepted accuracy rises further, reaching 0.9610 at 50% coverage with entropy, although only half of the examples are accepted.
+```
+
+A more careful version:
+
+```text
+The best uncertainty method depends on the rejection budget. Entropy performs best at 90%, 70%, and 50% coverage, while SMP performs best at 80% and 60% coverage. This suggests that MC-dropout uncertainty is useful at some operating points, but deterministic probability-based uncertainty remains competitive.
+```
+
+### 7.6 Optional: apply a fitted threshold
+
+After fitting thresholds, apply the selected threshold to the score files:
+
+```bash
+python scripts/smp_rejection_thresholds.py \
+  --config configs/smp_rejection_apply.yaml
+```
+
+Example apply config:
+
+```yaml
+mode: apply_thresholds
+
+task_type: classification
+
+input_predictions_glob: "results/english_validation_mbert/scores/fold_*_scores_wide.csv"
+
+input_thresholds: "results/english_validation_mbert/rejection_thresholds.csv"
+
+output_predictions: "results/english_validation_mbert/smp_rejection_applied.csv"
+output_summary: "results/english_validation_mbert/smp_rejection_summary.csv"
+
+columns:
+  gold_col: "true_label"
+  pred_col: "predicted_label"
+  language_col: null
+
+uncertainty:
+  methods: ["SMP"]
+  score_direction: "higher_is_uncertain"
+
+threshold:
+  scope: "global"
+```
+
+The applied output marks each prediction as accepted or rejected according to the fitted threshold.
+
+---
+
+## 8. Reporting
 
 After evaluation, run:
 
@@ -296,10 +558,9 @@ figures/
 
 ---
 
+## 9. Full model-based scoring
 
-## 8. Full model-based scoring
-
-Use this workflow  when you want the repo to load saved models and compute uncertainty scores.
+Use this workflow when you want the repo to load saved models and compute uncertainty scores.
 
 Check files:
 
@@ -326,7 +587,7 @@ python scripts/run_single_fold.py \
 
 ---
 
-## 9. Adding a new uncertainty method
+## 10. Adding a new uncertainty method
 
 1. Add the method in:
 
@@ -350,7 +611,7 @@ methods.enabled
 
 ---
 
-## 10. Development checks
+## 11. Development checks
 
 Run tests:
 
@@ -370,7 +631,7 @@ PY
 
 ---
 
-## 11. Citation
+## 12. Citation
 
 If you use this repository, please cite:
 
