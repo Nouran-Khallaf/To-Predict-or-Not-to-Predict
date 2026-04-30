@@ -1,0 +1,51 @@
+experiment_name: english_validation_mbert
+task_type: binary_classification
+
+folds:
+  n_folds: 10
+  fold_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+model:
+  model_id_template: "hannah-khallaf/Readme-sentence-binary-mBERT-bert-base-multilingual-cased_fold_{fold_id}"
+  architecture: "bert"
+
+data:
+  train_file: "./data/raw/readme_en_combined_all.xlsx"
+  pred_csv_template: "./data/predictions/bert-base-multilingual-cased_fold_{fold_id}_val_predictions.csv"
+  lang_name: "readme_en_combined_all"
+  text_column_candidates: ["Paragraph", "Sentence", "text", "paragraph"]
+  eval_text_column_candidates: ["Sentence", "sentence", "text", "Text"]
+  label_column_candidates: ["True Label", "True_Label", "TrueLabel", "Label", "gold", "Gold"]
+
+labels:
+  classes: ["simple", "complex"]
+
+mc_dropout:
+  committee_size: 20
+  dropout_p: 0.10
+
+embeddings:
+  batch_size: 32
+
+metrics:
+  ece_bins: 15
+  ti_fixed_coverage: 0.95
+
+methods:
+  enabled:
+    - SR
+    - ENT
+    - SMP
+    - PV
+    - BALD
+    - ENT_MC
+    - MD
+    - HUQ-MD
+    - LOF
+    - ISOF
+
+outputs:
+  outdir: "./results/english_validation_mbert"
+  save_per_fold_scores: true
+  save_wide_scores: true
+  save_long_scores: true

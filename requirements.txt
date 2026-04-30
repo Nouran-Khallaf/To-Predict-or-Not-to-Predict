@@ -1,0 +1,26 @@
+# Core data handling
+numpy>=1.23
+pandas>=1.5
+scipy>=1.10
+scikit-learn>=1.2
+
+# Configs and utilities
+pyyaml>=6.0
+tqdm>=4.65
+joblib>=1.2
+openpyxl>=3.1
+
+# Plotting and reporting
+matplotlib>=3.7
+
+# Model-based scoring
+torch>=2.0
+transformers>=4.35
+datasets>=2.14
+accelerate>=0.24
+
+# Optional embedding/model utilities used by some experiments
+sentence-transformers>=2.2
+
+# Development/testing
+pytest>=7.0

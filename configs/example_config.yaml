@@ -1,0 +1,41 @@
+experiment_name: example_experiment
+task_type: binary_classification
+
+folds:
+  n_folds: 1
+  fold_ids: [0]
+
+model:
+  model_id_template: "your-model-id-or-local-path"
+  architecture: "bert"
+
+data:
+  train_file: "./data/sample/sample_train.xlsx"
+  pred_csv_template: "./data/sample/sample_predictions_fold_{fold_id}.csv"
+  lang_name: "example_language"
+  text_column_candidates: ["Sentence", "text"]
+  eval_text_column_candidates: ["Sentence", "text"]
+  label_column_candidates: ["True Label", "Label"]
+
+labels:
+  classes: ["simple", "complex"]
+
+mc_dropout:
+  committee_size: 5
+  dropout_p: 0.10
+
+embeddings:
+  batch_size: 8
+
+metrics:
+  ece_bins: 10
+  ti_fixed_coverage: 0.95
+
+methods:
+  enabled: ["SR", "ENT"]
+
+outputs:
+  outdir: "./results/example_experiment"
+  save_per_fold_scores: true
+  save_wide_scores: true
+  save_long_scores: true

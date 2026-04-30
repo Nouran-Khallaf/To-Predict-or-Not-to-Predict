@@ -1,0 +1,77 @@
+# Reporting config for the saved-model uncertainty experiment.
+# Run from the repo root:
+#   python scripts/make_report_outputs.py --config configs/reporting_english_validation_mbert.yaml
+
+experiment_name: english_validation_mbert
+lang: EN
+
+paths:
+  results_dir: results/english_validation_mbert
+  metrics_summary: results/english_validation_mbert/metrics/metrics_summary_mean_std.csv
+  output_dir: results/english_validation_mbert/reporting
+
+# Your evaluator output uses "mode" for the uncertainty method.
+# Reporting uses the standard names: method, metric, mean, std.
+input:
+  column_map:
+    method: mode
+    metric: metric
+    mean: mean
+    std: std
+    n_folds: n_folds
+    ci_lower: ci_lower
+    ci_upper: ci_upper
+
+# This restores the original reporting layout:
+# rows = selective-prediction metrics, columns = SR, SMP, ENT.
+filters:
+  methods:
+    - SR
+    - SMP
+    - ENT
+  metrics:
+    - RC-AUC
+    - Norm RC-AUC
+    - E-AUoptRC
+    - TI
+    - TI@95
+    - Optimal Coverage
+
+outputs:
+  write_filtered_long_csv: true
+  filtered_long_csv_filename: metrics_summary_selective_long_en.csv
+  write_wide_mean_csv: true
+  wide_mean_csv_filename: metrics_summary_selective_mean_wide_en.csv
+  write_wide_std_csv: false
+  wide_std_csv_filename: metrics_summary_selective_std_wide_en.csv
+
+tables:
+  enabled: true
+  filename: metrics_summary_selective_en.tex
+  label: tab:metrics_summary_selective_en
+  caption: Selective-prediction metrics for the English validation mBERT experiment. Values are mean and standard deviation across folds. Bold marks the best method for each metric.
+
+plots:
+  enabled: true
+  heatmap: true
+  dpi: 300
+  formats: [png, pdf]
+  metrics_to_plot:
+    - RC-AUC
+    - Norm RC-AUC
+    - E-AUoptRC
+    - TI
+    - TI@95
+    - Optimal Coverage
+
+# Direction rules used for highlighting the best value in the LaTeX table.
+# Anything not listed here is treated as higher-is-better.
+metric_rules:
+  lower_is_better:
+    - ECE
+    - RC-AUC
+    - Norm RC-AUC
+    - E-AUoptRC
+  target_is_best:
+    CITL: 0.0
+    C-Slope: 1.0

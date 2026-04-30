@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uncertainty-benchmark"
+version = "0.1.0"
+description = "Reusable uncertainty benchmarking for text classification and readability prediction."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Nouran Khallaf"}
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "torch",
+    "transformers",
+    "datasets",
+    "accelerate",
+    "openpyxl",
+    "pyyaml",
+    "tqdm",
+    "matplotlib"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "black",
+    "mypy"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100

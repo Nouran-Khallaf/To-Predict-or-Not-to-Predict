@@ -1,0 +1,212 @@
+experiment_name: english_validation_mbert
+task_type: binary_classification
+mode: post_training_uncertainty_evaluation
+
+# --------------------------------------------------
+# Fold setup
+# --------------------------------------------------
+folds:
+  # Use [0,1,2,3,4,5,6,7,8,9] if your files are fold_0 ... fold_9.
+  # Use [1,2,3,4,5,6,7,8,9,10] if your files are fold_1 ... fold_10.
+  fold_ids: [0, 1, 2, 3, 4]
+  
+  # Important because sometimes you may have fewer than 10 validation files.
+  skip_missing_prediction_files: true
+  skip_missing_models: true
+
+# --------------------------------------------------
+# Saved model setup
+# --------------------------------------------------
+model:
+  model_id_template: "hannah-khallaf/Readme-binary-mBERT-bert-base-multilingual-cased_fold_{fold_id}"
+  architecture: "bert"
+  tokenizer_id_template: null
+  model_id_overrides: {}
+ 
+
+  # Optional: use this only if some folds have different model names.
+  # Example:
+  # model_id_overrides:
+  #   0: "hannah-khallaf/model-name-for-fold-0"
+  #   1: "hannah-khallaf/model-name-for-fold-1"
+  model_id_overrides: {}
+
+# --------------------------------------------------
+# Data setup
+# --------------------------------------------------
+data:
+  # Original full file used before splitting.
+  # The fold training pool will be reconstructed by removing validation rows.
+  train_file: "./data/raw/readme_en_combined_all.xlsx"
+  train_files:
+    readme_en_combined_all: "data/original/readme_en_combined_all.xlsx"
+    readme_ar_combined_all: "data/original/readme_ar_combined_all.xlsx"
+    readme_fr_combined_all: "data/original/readme_fr_combined_all.xlsx"
+    readme_hi_combined_all: "data/original/readme_hi_combined_all.xlsx"
+    readme_ru_combined_all: "data/original/readme_ru_combined_all.xlsx"
+
+  remove_validation_from_train: true
+
+
+  # Validation prediction files saved after training.
+  pred_csv_template: "./data/predictions/bert-base-multilingual-cased_fold_{fold_id}_val_predictions.csv"
+
+  # This must match the Lang value in the validation prediction CSV.
+  lang_name: "readme_en_combined_all"
+
+  # Text columns in the original training file.
+  train_text_column_candidates:
+    - "Paragraph"
+    - "Sentence"
+    - "text"
+    - "paragraph"
+
+  # Text columns in the validation prediction CSV.
+  eval_text_column_candidates:
+    - "Sentence"
+    - "sentence"
+    - "text"
+    - "Text"
+
+  # Original train label columns.
+  train_label_column_candidates:
+    - "Label"
+    - "label"
+    - "Rating"
+    - "rating"
+
+  # Validation prediction label columns.
+  eval_true_label_column_candidates:
+    - "True Label"
+    - "True_Label"
+    - "TrueLabel"
+    - "Label"
+    - "gold"
+    - "Gold"
+
+  eval_pred_label_column_candidates:
+    - "Predicted Label"
+    - "Predicted_Label"
+    - "PredictedLabel"
+    - "prediction"
+    - "Prediction"
+
+  # Used only when the original train file has Rating instead of simple/complex labels.
+  rating_to_label:
+    enabled: true
+    rating_column: "Rating"
+    complex_if_greater_equal: 4
+    simple_label: "simple"
+    complex_label: "complex"
+
+  # How to remove validation examples from the original train file.
+  validation_removal:
+    enabled: true
+    match_on:
+      - "text"
+    normalise_whitespace: true
+    case_sensitive: true
+    save_removed_rows: true
+    save_train_pool: true
+
+# --------------------------------------------------
+# Label setup
+# --------------------------------------------------
+labels:
+  classes: ["simple", "complex"]
+  positive_label: "complex"
+
+  # Probability columns in your validation CSV.
+  # The script will look for Prob_simple and Prob_complex.
+  probability_column_template: "Prob_{class}"
+
+
+evaluation:
+  mode: saved_scores
+  #mode: model_scoring
+# --------------------------------------------------
+# Uncertainty methods
+# --------------------------------------------------
+methods:
+  enabled:
+    # From saved validation probabilities
+    - SR
+    - ENT
+
+    # MC-dropout methods from saved model
+    #- SMP
+    #- PV
+   # - BALD
+   # - ENT_MC
+
+    # Embedding/train-pool methods
+    #- MD
+   # - HUQ-MD
+   # - LOF
+   # - ISOF
+
+ 
+
+# --------------------------------------------------
+# MC dropout setup
+# --------------------------------------------------
+mc_dropout:
+  enabled: true
+  committee_size: 20
+  dropout_p: 0.10
+  batch_size: 32
+  seed: 42
+
+# --------------------------------------------------
+# Embedding setup
+# --------------------------------------------------
+embeddings:
+  enabled: true
+  batch_size: 32
+  layer: "cls"
+  normalise: false
+
+# --------------------------------------------------
+# Distance / density uncertainty setup
+# --------------------------------------------------
+distance_methods:
+  md:
+    regularisation: 1.0e-5
+
+  huq_md:
+    regularisation: 1.0e-5
+
+  lof:
+    n_neighbors: 20
+    contamination: "auto"
+
+  isof:
+    n_estimators: 200
+    contamination: "auto"
+    random_state: 42
+
+# --------------------------------------------------
+# Metrics
+# --------------------------------------------------
+metrics:
+  ece_bins: 15
+  ti_fixed_coverage: 0.95
+  rejection_rates: [0.01, 0.05, 0.10, 0.15]
+
+# --------------------------------------------------
+# Outputs
+# --------------------------------------------------
+outputs:
+  outdir: "./results/english_validation_mbert"
+
+  save_train_pool_per_fold: true
+  save_removed_validation_rows: true
+
+  save_per_fold_scores: true
+  save_per_fold_metrics: true
+
+  save_wide_scores: true
+  save_long_scores: true
+
+  save_fold_summary: true
+  save_combined_summary: true
