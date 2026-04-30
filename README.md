@@ -13,11 +13,6 @@ The repository supports three main workflows:
 3. **Generate reporting outputs**  
    Use this after evaluation to create paper-ready CSV files, LaTeX tables, and figures.
 
-All uncertainty scores should follow one convention:
-
-```text
-larger score = more uncertain
-```
 
 ---
 
