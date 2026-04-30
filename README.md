@@ -65,7 +65,7 @@ Install the local `src` package:
 pip install -e .
 ```
 
-If imports fail on a cluster, add `src` to `PYTHONPATH`:
+If imports fail , add `src` to `PYTHONPATH`:
 
 ```bash
 export PYTHONPATH=$PWD/src:$PYTHONPATH
