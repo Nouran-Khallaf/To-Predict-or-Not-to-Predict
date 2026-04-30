@@ -1,0 +1,38 @@
+mode: fit_thresholds
+
+task_type: classification
+
+input_predictions_glob: "results/english_validation_mbert/scores/fold_*_scores_wide.csv"
+
+output_thresholds: "results/english_validation_mbert/rejection_thresholds.csv"
+output_curve: "results/english_validation_mbert/rejection_curve.csv"
+
+columns:
+  gold_col: "true_label"
+  pred_col: "predicted_label"
+  language_col: null
+
+uncertainty:
+  methods: ["SMP", "SR", "ENT"]
+  score_direction: "higher_is_uncertain"
+
+languages:
+  use: "all"
+
+threshold:
+  scope: "global"
+
+threshold_selection:
+  mode: "target_coverage"
+  target_coverage: 0.80
+
+coverage_grid:
+  start: 1.00
+  end: 0.50
+  step: 0.05
+
+bootstrap:
+  enabled: true
+  n_resamples: 200
+  ci: 0.95
+  random_seed: 42

@@ -1,0 +1,22 @@
+mode: apply_thresholds
+
+task_type: classification
+
+input_predictions_glob: "results/english_validation_mbert/scores/fold_*_scores_wide.csv"
+
+input_thresholds: "results/english_validation_mbert/rejection_thresholds.csv"
+
+output_predictions: "results/english_validation_mbert/smp_rejection_applied.csv"
+output_summary: "results/english_validation_mbert/smp_rejection_summary.csv"
+
+columns:
+  gold_col: "true_label"
+  pred_col: "predicted_label"
+  language_col: null
+
+uncertainty:
+  methods: ["SMP"]
+  score_direction: "higher_is_uncertain"
+
+threshold:
+  scope: "global"
